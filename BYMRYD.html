@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>BYMRYP Yard Planner</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    #sidebar {
+      width: 250px;
+      background: #2c3e50;
+      color: white;
+      padding: 10px;
+      box-sizing: border-box;
+      overflow-y: auto;
+    }
+    .menu {
+      margin-bottom: 10px;
+      border: 1px solid #34495e;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    .menu-header {
+      background: #34495e;
+      padding: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .menu-content {
+      display: none;
+      padding: 8px;
+      background: #3d566e;
+    }
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .menu-content img {
+      width: 50px;
+      height: 50px;
+      cursor: grab;
+      display: block;
+    }
+    .counter {
+      font-size: 14px;
+      color: #ddd;
+    }
+
+    /* Main content */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #ecf0f1;
+    }
+    #controls {
+      background: #ecf0f1;
+      padding: 10px;
+      display: flex;
+      gap: 10px;
+      border-bottom: 1px solid #ccc;
+    }
+    #grid-wrapper {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: auto;
+    }
+
+    /* Grid */
+    #grid {
+      position: relative;
+      width: 1000px;
+      height: 1000px;
+      background-color: #7bb661;
+      background-image:
+        linear-gradient(to right, #9acd32 1px, transparent 1px),
+        linear-gradient(to bottom, #9acd32 1px, transparent 1px);
+      background-size: 10px 10px;
+      transform-origin: center center;
+    }
+
+    /* Center marker */
+    #center-marker {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: red;
+      border-radius: 50%;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Draggable wrappers */
+    .draggable {
+      position: absolute;
+      cursor: grab;
+      user-select: none;
+      z-index: 10;
+      display: inline-block;
+      box-sizing: content-box;
+      padding: 0;
+      margin: 0;
+      overflow: visible;
+    }
+    .draggable:active { cursor: grabbing; }
+    .draggable.selected {
+      outline: 2px solid yellow;
+      outline-offset: 0;
+    }
+
+    .delete-btn {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: red;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      font-size: 12px;
+      line-height: 14px;
+      text-align: center;
+      cursor: pointer;
+      display: none;
+      padding: 0;
+      z-index: 30;
+    }
+    .draggable:hover .delete-btn { display: block; }
+
+    .range-circle {
+      position: absolute;
+      background: rgba(0,150,255,0.2);
+      border-radius: 50%;
+      pointer-events: none;
+      display: none;
+      z-index: 0;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    /* Tooltip */
+    .tooltip {
+      position: absolute;
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 2000;
+      display: none;
+    }
+
+    .draggable img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      position: relative;
+      z-index: 5;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <!-- Resources -->
+    <div class="menu">
+      <div class="menu-header">Resources</div>
+      <div class="menu-content">
+        <div class="menu-item"><img src="Townhall.webp" alt="Town Hall" draggable="true" id="townhall-icon"><span class="counter" id="townhall-counter">1</span></div>
+        <div class="menu-item"><img src="Twig.webp" alt="Twig Snapper" draggable="true" id="twig-icon"><span class="counter" id="twig-counter">6</span></div>
+        <div class="menu-item"><img src="Pebble.webp" alt="Pebble Shiner" draggable="true" id="pebble-icon"><span class="counter" id="pebble-counter">6</span></div>
+        <div class="menu-item"><img src="Putty.webp" alt="Putty Squisher" draggable="true" id="putty-icon"><span class="counter" id="putty-counter">6</span></div>
+        <div class="menu-item"><img src="Goo.webp" alt="Goo Factory" draggable="true" id="goo-icon"><span class="counter" id="goo-counter">6</span></div>
+        <div class="menu-item"><img src="Silo.webp" alt="Silo" draggable="true" id="silo-icon"><span class="counter" id="silo-counter">6</span></div>
+      </div>
+    </div>
+
+    <!-- Defensive -->
+    <div class="menu">
+      <div class="menu-header">Defensive</div>
+      <div class="menu-content">
+        <div class="menu-item"><img src="Block.webp" alt="Wall" draggable="true" id="wall-icon" style="width:40px;height:40px;"><span class="counter" id="wall-counter">400</span></div>
+        <div class="menu-item"><img src="Boobytrap.webp" alt="Booby Trap" draggable="true" id="booby-icon" style="width:40px;height:40px;"><span class="counter" id="booby-counter">75</span></div>
+        <div class="menu-item"><img src="Heavytrap.webp" alt="Heavy Trap" draggable="true" id="heavy-icon" style="width:40px;height:40px;"><span class="counter" id="heavy-counter">18</span></div>
+        <div class="menu-item"><img src="Snipertower.webp" alt="Sniper Tower" draggable="true" id="sniper-icon" style="width:40px;height:40px;"><span class="counter" id="sniper-counter">6</span></div>
+        <div class="menu-item"><img src="Cannontower.webp" alt="Cannon Tower" draggable="true" id="cannon-icon" style="width:40px;height:40px;"><span class="counter" id="cannon-counter">6</span></div>
+        <div class="menu-item"><img src="Teslatower.webp" alt="Tesla Tower" draggable="true" id="tesla-icon" style="width:40px;height:40px;"><span class="counter" id="tesla-counter">3</span></div>
+        <div class="menu-item"><img src="Lasertower.webp" alt="Laser Tower" draggable="true" id="laser-icon" style="width:40px;height:40px;"><span class="counter" id="laser-counter">3</span></div>
+        <div class="menu-item"><img src="ArialDefenseTower.webp" alt="Aerial Defense Tower" draggable="true" id="adt-icon" style="width:40px;height:40px;"><span class="counter" id="adt-counter">2</span></div>
+        <div class="menu-item"><img src="Railgun.webp" alt="Railgun" draggable="true" id="railgun-icon" style="width:40px;height:40px;"><span class="counter" id="railgun-counter">3</span></div>
+        <div class="menu-item"><img src="Quaketower.webp" alt="Quake Tower" draggable="true" id="quake-icon" style="width:40px;height:40px;"><span class="counter" id="quake-counter">4</span></div>
+        <div class="menu-item"><img src="Magmatower.webp" alt="Magma Tower" draggable="true" id="magma-icon" style="width:40px;height:40px;"><span class="counter" id="magma-counter">2</span></div>
+        <div class="menu-item"><img src="Spurtzcanon.webp" alt="Spurtz Cannon" draggable="true" id="spurtz-icon" style="width:40px;height:40px;"><span class="counter" id="spurtz-counter">2</span></div>
+        <div class="menu-item"><img src="MonsterBunker.PNG" alt="Monster Bunker" draggable="true" id="bunker-icon" style="width:40px;height:40px;"><span class="counter" id="bunker-counter">4</span></div>
+        <div class="menu-item"><img src="Championcage.webp" alt="Champion Cage" draggable="true" id="championcage-icon" style="width:50px;height:50px;"><span class="counter" id="championcage-counter">1</span></div>
+        <div class="menu-item"><img src="Championchamber.webp" alt="Champion Chamber" draggable="true" id="championchamber-icon" style="width:50px;height:50px;"><span class="counter" id="championchamber-counter">1</span></div>
+      </div>
+    </div>
+
+    <!-- General -->
+    <div class="menu">
+      <div class="menu-header">General</div>
+      <div class="menu-content">
+        <div class="menu-item"><img src="Yardplannerico.webp" alt="Yard Planner" draggable="true" id="yardplanner-icon" style="width:40px;height:40px;"><span class="counter" id="yardplanner-counter">1</span></div>
+        <div class="menu-item"><img src="Generalstore.webp" alt="General Store" draggable="true" id="generalstore-icon" style="width:40px;height:40px;"><span class="counter" id="generalstore-counter">1</span></div>
+        <div class="menu-item"><img src="Academy.webp" alt="Monster Academy" draggable="true" id="academy-icon" style="width:40px;height:40px;"><span class="counter" id="academy-counter">2</span></div>
+        <div class="menu-item"><img src="Map.webp" alt="Map Room" draggable="true" id="maproom-icon" style="width:45px;height:45px;"><span class="counter" id="maproom-counter">1</span></div>
+        <div class="menu-item"><img src="Lab.webp" alt="Monster Lab" draggable="true" id="monsterlab-icon" style="width:50px;height:50px;"><span class="counter" id="monsterlab-counter">1</span></div>
+        <div class="menu-item"><img src="Chaoslab.webp" alt="Chaos Lab" draggable="true" id="chaoslab-icon" style="width:50px;height:50px;"><span class="counter" id="chaoslab-counter">1</span></div>
+        <div class="menu-item"><img src="Chaosfactory.webp" alt="Chaos Factory" draggable="true" id="chaosfactory-icon" style="width:50px;height:50px;"><span class="counter" id="chaosfactory-counter">1</span></div>
+        <div class="menu-item"><img src="Catapult.webp" alt="Catapult" draggable="true" id="catapult-icon" style="width:50px;height:50px;"><span class="counter" id="catapult-counter">1</span></div>
+        <div class="menu-item"><img src="Flinger.webp" alt="Flinger" draggable="true" id="flinger-icon" style="width:50px;height:50px;"><span class="counter" id="flinger-counter">1</span></div>
+        <div class="menu-item"><img src="Locker.webp" alt="Monster Locker" draggable="true" id="locker-icon" style="width:50px;height:50px;"><span class="counter" id="locker-counter">1</span></div>
+        <div class="menu-item"><img src="Hatchery.webp" alt="Hatchery" draggable="true" id="hatchery-icon" style="width:50px;height:50px;"><span class="counter" id="hatchery-counter">5</span></div>
+        <div class="menu-item"><img src="HCC.webp" alt="Hatcher Control Center" draggable="true" id="hcc-icon" style="width:50px;height:50px;"><span class="counter" id="hcc-counter">1</span></div>
+        <div class="menu-item"><img src="Housing.webp" alt="Housing" draggable="true" id="housing-icon" style="width:80px;height:80px;"><span class="counter" id="housing-counter">4</span></div>
+        <div class="menu-item"><img src="Juicer.webp" alt="Monster Juicer" draggable="true" id="juicer-icon" style="width:40px;height:40px;"><span class="counter" id="juicer-counter">1</span></div>
+        <div class="menu-item"><img src="Baiter.webp" alt="Wild Monster Baiter" draggable="true" id="baiter-icon" style="width:50px;height:50px;"><span class="counter" id="baiter-counter">1</span></div>
+        <div class="menu-item"><img src="Radio.webp" alt="Radio Tower" draggable="true" id="radio-icon" style="width:50px;height:50px;"><span class="counter" id="radio-counter">1</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+    <div id="controls">
+      <button id="zoomInBtn">Zoom In</button>
+      <button id="zoomOutBtn">Zoom Out</button>
+      <button id="resetZoomBtn">Reset Zoom</button>
+      <button id="removeBtn">Remove</button>
+    </div>
+    <div id="grid-wrapper"><div id="grid"><div id="center-marker"></div></div></div>
+  </div>
+
+  <div id="tooltip" class="tooltip"></div>
+
+  <script>
+    (function(){
+      const grid = document.getElementById('grid');
+      const tooltip = document.getElementById('tooltip');
+      let zoomLevel = 1;
+      let dragTarget = null;
+      let dragOffsetX = 0;
+      let dragOffsetY = 0;
+      let selectedWrapper = null;
+      let prevX = 0, prevY = 0;
+
+      // building icons & limits
+      const buildingIcons = {
+        "townhall-icon": {name:"Town Hall", limit:1},
+        "twig-icon": {name:"Twig Snapper", limit:6},
+        "pebble-icon": {name:"Pebble Shiner", limit:6},
+        "putty-icon": {name:"Putty Squisher", limit:6},
+        "goo-icon": {name:"Goo Factory", limit:6},
+        "silo-icon": {name:"Silo", limit:6},
+        "wall-icon": {name:"Wall", limit:400},
+        "booby-icon": {name:"Booby Trap", limit:75},
+        "heavy-icon": {name:"Heavy Trap", limit:18},
+        "sniper-icon": {name:"Sniper Tower", limit:6},
+        "cannon-icon": {name:"Cannon Tower", limit:6},
+        "tesla-icon": {name:"Tesla Tower", limit:3},
+        "laser-icon": {name:"Laser Tower", limit:3},
+        "adt-icon": {name:"Aerial Defense Tower", limit:2},
+        "railgun-icon": {name:"Railgun", limit:3},
+        "quake-icon": {name:"Quake Tower", limit:4},
+        "magma-icon": {name:"Magma Tower", limit:2},
+        "spurtz-icon": {name:"Spurtz Cannon", limit:2},
+        "bunker-icon": {name:"Monster Bunker", limit:4},
+        "championcage-icon": {name:"Champion Cage", limit:1},
+        "championchamber-icon": {name:"Champion Chamber", limit:1},
+        "yardplanner-icon": {name:"Yard Planner", limit:1},
+        "generalstore-icon": {name:"General Store", limit:1},
+        "academy-icon": {name:"Monster Academy", limit:2},
+        "maproom-icon": {name:"Map Room", limit:1},
+        "monsterlab-icon": {name:"Monster Lab", limit:1},
+        "chaoslab-icon": {name:"Chaos Lab", limit:1},
+        "chaosfactory-icon": {name:"Chaos Factory", limit:1},
+        "catapult-icon": {name:"Catapult", limit:1},
+        "flinger-icon": {name:"Flinger", limit:1},
+        "locker-icon": {name:"Monster Locker", limit:1},
+        "hatchery-icon": {name:"Hatchery", limit:5},
+        "hcc-icon": {name:"Hatcher Control Center", limit:1},
+        "housing-icon": {name:"Housing", limit:4},
+        "juicer-icon": {name:"Monster Juicer", limit:1},
+        "baiter-icon": {name:"Wild Monster Baiter", limit:1},
+        "radio-icon": {name:"Radio Tower", limit:1}
+      };
+
+      const sizeMap = {
+        "townhall-icon": {w:65, h:65},
+        "twig-icon": {w:35, h:35},
+        "pebble-icon": {w:35, h:35},
+        "putty-icon": {w:35, h:35},
+        "goo-icon": {w:35, h:35},
+        "silo-icon": {w:40, h:40},
+        "wall-icon": {w:10, h:10},
+        "booby-icon": {w:10, h:10},
+        "heavy-icon": {w:10, h:10},
+        "sniper-icon": {w:35, h:35},
+        "cannon-icon": {w:35, h:35},
+        "tesla-icon": {w:35, h:35},
+        "laser-icon": {w:35, h:35},
+        "adt-icon": {w:35, h:35},
+        "railgun-icon": {w:35, h:35},
+        "quake-icon": {w:35, h:35},
+        "magma-icon": {w:35, h:35},
+        "spurtz-icon": {w:25, h:25},
+        "bunker-icon": {w:45, h:45},
+        "championcage-icon": {w:80, h:80},
+        "championchamber-icon": {w:50, h:50},
+        "yardplanner-icon": {w:50, h:50},
+        "generalstore-icon": {w:35, h:35},
+        "academy-icon": {w:50, h:50},
+        "maproom-icon": {w:45, h:45},
+        "monsterlab-icon": {w:50, h:50},
+        "chaoslab-icon": {w:50, h:50},
+        "chaosfactory-icon": {w:50, h:50},
+        "catapult-icon": {w:45, h:45},
+        "flinger-icon": {w:45, h:45},
+        "locker-icon": {w:50, h:50},
+        "hatchery-icon": {w:50, h:50},
+        "hcc-icon": {w:50, h:50},
+        "housing-icon": {w:80, h:80},
+        "juicer-icon": {w:40, h:40},
+        "baiter-icon": {w:40, h:40},
+        "radio-icon": {w:40, h:40}
+      };
+
+      const towerRanges = {
+        "sniper-icon": 186,
+        "cannon-icon": 100,
+        "tesla-icon": 120,
+        "laser-icon": 89,
+        "adt-icon": 200,
+        "railgun-icon": 200,
+        "quake-icon": 105,
+        "magma-icon": 150,
+        "spurtz-icon": 250,
+        "bunker-icon": 250,
+       
+      };
+
+      const placedCounts = {};
+      Object.keys(buildingIcons).forEach(k => placedCounts[k] = 0);
+
+      function isOverlapping(wrapper) {
+        const rect1 = wrapper.getBoundingClientRect();
+        const gridRect = grid.getBoundingClientRect();
+        const x1 = rect1.left - gridRect.left;
+        const y1 = rect1.top - gridRect.top;
+        const w1 = rect1.width / zoomLevel;
+        const h1 = rect1.height / zoomLevel;
+
+        for (const other of grid.querySelectorAll('.draggable')) {
+          if (other === wrapper) continue;
+          const r2 = other.getBoundingClientRect();
+          const ox = r2.left - gridRect.left;
+          const oy = r2.top - gridRect.top;
+          const ow = r2.width / zoomLevel;
+          const oh = r2.height / zoomLevel;
+
+          if (!(x1 + w1 <= ox || x1 >= ox + ow || y1 + h1 <= oy || y1 >= oy + oh)) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      // menus toggle
+      document.querySelectorAll('.menu-header').forEach(header => {
+        header.addEventListener('click', () => {
+          const content = header.nextElementSibling;
+          content.style.display = (content.style.display === 'block') ? 'none' : 'block';
+        });
+      });
+
+      // drag from menu
+      document.querySelectorAll('#sidebar img[draggable="true"]').forEach(icon => {
+        icon.addEventListener('dragstart', e => {
+          e.dataTransfer.setData('text/plain', icon.id);
+        });
+      });
+
+      grid.addEventListener('dragover', e => e.preventDefault());
+      grid.addEventListener('drop', e => {
+        e.preventDefault();
+        const id = e.dataTransfer.getData('text/plain');
+        if (!id) return;
+
+        if (placedCounts[id] >= buildingIcons[id].limit) return;
+        placedCounts[id]++;
+        updateCounter(id);
+
+        const {w, h} = sizeMap[id] || {w:40, h:40};
+        const wrapper = document.createElement('div');
+        wrapper.className = 'draggable';
+        wrapper.style.width = w+"px";
+        wrapper.style.height = h+"px";
+        wrapper.style.left = (e.offsetX - w/2) + "px";
+        wrapper.style.top = (e.offsetY - h/2) + "px";
+        wrapper.dataset.id = id;
+        wrapper.dataset.fromMenu = "true";
+
+        const img = document.createElement('img');
+        img.src = document.getElementById(id).src;
+        wrapper.appendChild(img);
+
+        const del = document.createElement('button');
+        del.textContent = "×";
+        del.className = "delete-btn";
+        del.onclick = () => { grid.removeChild(wrapper); placedCounts[id]--; updateCounter(id); };
+        wrapper.appendChild(del);
+
+        if (towerRanges[id]) {
+          const r = towerRanges[id];
+          const circle = document.createElement('div');
+          circle.className = "range-circle";
+          circle.style.width = (r*2)+"px";
+          circle.style.height = (r*2)+"px";
+          wrapper.appendChild(circle);
+
+          // show/hide circle + tooltip on hover
+          wrapper.addEventListener('mouseenter', () => {
+            circle.style.display = 'block';
+            tooltip.style.display = 'block';
+            tooltip.textContent = buildingIcons[id].name;
+          });
+          wrapper.addEventListener('mouseleave', () => {
+            circle.style.display = 'none';
+            tooltip.style.display = 'none';
+          });
+          wrapper.addEventListener('mousemove', e => {
+            tooltip.style.left = (e.pageX + 10) + 'px';
+            tooltip.style.top = (e.pageY + 10) + 'px';
+          });
+        } else {
+          // just tooltip for non-tower
+          wrapper.addEventListener('mouseenter', () => {
+            tooltip.style.display = 'block';
+            tooltip.textContent = buildingIcons[id].name;
+          });
+          wrapper.addEventListener('mouseleave', () => {
+            tooltip.style.display = 'none';
+          });
+          wrapper.addEventListener('mousemove', e => {
+            tooltip.style.left = (e.pageX + 10) + 'px';
+            tooltip.style.top = (e.pageY + 10) + 'px';
+          });
+        }
+
+        // ✅ FIX: selection outline
+        wrapper.addEventListener('click', e => {
+          e.stopPropagation();
+          if (selectedWrapper) selectedWrapper.classList.remove('selected');
+          selectedWrapper = wrapper;
+          wrapper.classList.add('selected');
+        });
+
+        grid.appendChild(wrapper);
+
+        if (isOverlapping(wrapper)) {
+          grid.removeChild(wrapper);
+          placedCounts[id]--;
+          updateCounter(id);
+          return;
+        }
+
+        makeDraggable(wrapper);
+      });
+
+      function makeDraggable(wrapper) {
+        wrapper.addEventListener('mousedown', e => {
+          if (e.target.classList.contains('delete-btn')) return;
+          dragTarget = wrapper;
+          prevX = parseFloat(wrapper.style.left);
+          prevY = parseFloat(wrapper.style.top);
+          dragOffsetX = (e.clientX - wrapper.offsetLeft * zoomLevel);
+          dragOffsetY = (e.clientY - wrapper.offsetTop * zoomLevel);
+        });
+      }
+
+      document.addEventListener('mousemove', e => {
+        if (!dragTarget) return;
+        let newX = (e.clientX - dragOffsetX) / zoomLevel;
+        let newY = (e.clientY - dragOffsetY) / zoomLevel;
+        dragTarget.style.left = newX + "px";
+        dragTarget.style.top = newY + "px";
+      });
+
+      document.addEventListener('mouseup', e => {
+        if (!dragTarget) return;
+        if (isOverlapping(dragTarget)) {
+          if (dragTarget.dataset.fromMenu === "true") {
+            grid.removeChild(dragTarget);
+            const id = dragTarget.dataset.id;
+            placedCounts[id]--;
+            updateCounter(id);
+          } else {
+            dragTarget.style.left = prevX + "px";
+            dragTarget.style.top = prevY + "px";
+          }
+        }
+        dragTarget.dataset.fromMenu = "false";
+        dragTarget = null;
+      });
+
+      document.getElementById('removeBtn').addEventListener('click', () => {
+        if (selectedWrapper) {
+          const id = selectedWrapper.dataset.id;
+          grid.removeChild(selectedWrapper);
+          placedCounts[id]--;
+          updateCounter(id);
+          selectedWrapper = null;
+        }
+      });
+
+      function updateCounter(id) {
+        document.getElementById(id.replace("icon","counter")).textContent =
+          buildingIcons[id].limit - placedCounts[id];
+      }
+
+// ===== Pan + Zoom (safe replacement) =====
+// NOTE: do NOT redeclare `zoomLevel` here — your script already sets it near the top.
+// If you accidentally added `let zoomLevel = 1` again, remove that duplicate declaration.
+
+if (typeof zoomLevel === 'undefined') zoomLevel = 1; // safe fallback only if missing
+
+// Camera state (new variables; safe to declare)
+let cameraX = 0;
+let cameraY = 0;
+let isPanning = false;
+let panStartX = 0;
+let panStartY = 0;
+
+// Shared transform update (applies to the #grid element only)
+function updateTransform() {
+  // grid is already defined earlier: const grid = document.getElementById('grid');
+  grid.style.transformOrigin = 'center center';
+  grid.style.transform = `translate(${cameraX}px, ${cameraY}px) scale(${zoomLevel})`;
+}
+
+// --- Zoom buttons (replace any old handlers with these) ---
+const zIn = document.getElementById('zoomInBtn');
+const zOut = document.getElementById('zoomOutBtn');
+const zReset = document.getElementById('resetZoomBtn');
+
+if (zIn) zIn.addEventListener('click', () => {
+  zoomLevel *= 1.2;
+  updateTransform();
+});
+if (zOut) zOut.addEventListener('click', () => {
+  zoomLevel /= 1.2;
+  updateTransform();
+});
+if (zReset) zReset.addEventListener('click', () => {
+  zoomLevel = 1;
+  cameraX = 0;
+  cameraY = 0;
+  updateTransform();
+});
+
+// Pan
+grid.addEventListener('mousedown', e => {
+  if (e.button === 0 && e.target === grid) {  // left-click on empty grid
+    console.log("Pan start");
+    isPanning = true;
+    panStartX = e.clientX - cameraX;
+    panStartY = e.clientY - cameraY;
+    e.preventDefault();
+  }
+});
+
+window.addEventListener('mousemove', e => {
+  if (!isPanning) return;
+  cameraX = e.clientX - panStartX;
+  cameraY = e.clientY - panStartY;
+  updateTransform();
+});
+
+window.addEventListener('mouseup', () => {
+  isPanning = false;
+});
+
+
+window.addEventListener("mousemove", e => {
+  if (!isPanning) return;
+  cameraX = e.clientX - startX;
+  cameraY = e.clientY - startY;
+  updateTransform();
+});
+
+window.addEventListener("mouseup", () => {
+  isPanning = false;
+});
+
+      // ✅ Deselect when clicking empty grid space
+      grid.addEventListener('click', e => {
+        if (e.target === grid) {
+          if (selectedWrapper) selectedWrapper.classList.remove('selected');
+          selectedWrapper = null;
+     
+        }
+      });
+      // === Collision detection that allows touching but not overlap ===
+  function isOverlapping(wrapper) {
+  const x1 = parseFloat(wrapper.style.left);
+  const y1 = parseFloat(wrapper.style.top);
+  const w1 = wrapper.offsetWidth;
+  const h1 = wrapper.offsetHeight;
+
+  for (const other of grid.querySelectorAll(".draggable")) {
+    if (other === wrapper) continue;
+
+    const ox = parseFloat(other.style.left);
+    const oy = parseFloat(other.style.top);
+    const ow = other.offsetWidth;
+    const oh = other.offsetHeight;
+
+    // Allow touching, but disallow overlap
+    if (x1 < ox + ow && x1 + w1 > ox && y1 < oy + oh && y1 + h1 > oy) {
+      return true;
+    }
+  }
+  return false;
+}
+
+    })();
+  </script>
+</body>
+</html>
